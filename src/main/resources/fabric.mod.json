@@ -1,11 +1,11 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "buildbpt",
 	"version": "${version}",
-	"name": "Example mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "BuildGPT",
+	"description": "Build Structures designed by ChatGPT!",
 	"authors": [
-		"Me!"
+		"Jonas_Jones"
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
@@ -16,26 +16,16 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.example.ExampleMod"
+			"dev.jonasjones.BuildGPT"
 		],
 		"client": [
-			"com.example.ExampleModClient"
+			"dev.jonasjones.BuildGPTClient"
 		]
 	},
-	"mixins": [
-		"modid.mixins.json",
-		{
-			"config": "modid.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.16.7",
 		"minecraft": "~1.21.3",
 		"java": ">=21",
 		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
 	}
 }
