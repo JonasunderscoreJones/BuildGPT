@@ -8,15 +8,13 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.api.ModInitializer;
 
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.command.argument.BlockPosArgumentType;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -43,7 +41,7 @@ import java.util.Scanner;
 import java.util.Vector;
 
 public class BuildGPT implements ModInitializer {
-	public static final String MOD_ID = "modid";
+	public static final String MOD_ID = "buildgpt";
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -57,28 +55,28 @@ public class BuildGPT implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-			dispatcher.register(CommandManager.literal("buildgpt")
-					.then(CommandManager.literal("bound")
-						.then(CommandManager.argument("start_pos", BlockPosArgumentType.blockPos())
-								.then(CommandManager.argument("end_pos", BlockPosArgumentType.blockPos())
-										.then(CommandManager.argument("building", StringArgumentType.greedyString())
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			dispatcher.register(Commands.literal("buildgpt")
+					.then(Commands.literal("bound")
+						.then(Commands.argument("start_pos", BlockPosArgument.blockPos())
+								.then(Commands.argument("end_pos", BlockPosArgument.blockPos())
+										.then(Commands.argument("building", StringArgumentType.greedyString())
 																			.executes(BuildGPT::executeBuildGptdBound)))))
-					.then(CommandManager.literal("unbound")
-							.then(CommandManager.argument("start_pos", BlockPosArgumentType.blockPos())
-									.then(CommandManager.argument("building", StringArgumentType.greedyString())
+					.then(Commands.literal("unbound")
+							.then(Commands.argument("start_pos", BlockPosArgument.blockPos())
+									.then(Commands.argument("building", StringArgumentType.greedyString())
 										.executes(BuildGPT::executeBuildGptUnboud)))));
 		});
 	}
 
-	private static int executeBuildGptdBound(CommandContext<ServerCommandSource> context) {
+	private static int executeBuildGptdBound(CommandContext<CommandSourceStack> context) {
 		String building = StringArgumentType.getString(context, "building");
-		BlockPos start_pos = BlockPosArgumentType.getBlockPos(context, "start_pos");
+		BlockPos start_pos = BlockPosArgument.getBlockPos(context, "start_pos");
 		String prompt;
 		int x1 = start_pos.getX();
 		int y1 = start_pos.getY();
 		int z1 = start_pos.getZ();
-		BlockPos end_pos = BlockPosArgumentType.getBlockPos(context, "end_pos");
+		BlockPos end_pos = BlockPosArgument.getBlockPos(context, "end_pos");
 		int x2 = end_pos.getX();
 		int y2 = end_pos.getY();
 		int z2 = end_pos.getZ();
@@ -92,9 +90,9 @@ public class BuildGPT implements ModInitializer {
 		return executeBuildGpt(context, prompt);
 	}
 
-	private static int executeBuildGptUnboud(CommandContext<ServerCommandSource> context) {
+	private static int executeBuildGptUnboud(CommandContext<CommandSourceStack> context) {
 		String building = StringArgumentType.getString(context, "building");
-		BlockPos start_pos = BlockPosArgumentType.getBlockPos(context, "start_pos");
+		BlockPos start_pos = BlockPosArgument.getBlockPos(context, "start_pos");
 		int x1 = start_pos.getX();
 		int y1 = start_pos.getY();
 		int z1 = start_pos.getZ();
@@ -108,12 +106,12 @@ public class BuildGPT implements ModInitializer {
 		return executeBuildGpt(context, prompt);
 	}
 
-	private static int executeBuildGpt(CommandContext<ServerCommandSource> context, String prompt) {
-		ServerCommandSource source = context.getSource();
-		source.sendMessage(Text.of("Requesting Structure from GPT..."));
+	private static int executeBuildGpt(CommandContext<CommandSourceStack> context, String prompt) {
+		CommandSourceStack source = context.getSource();
+		source.sendSystemMessage(Component.literal("Requesting Structure from GPT..."));
 		String jsonResponse = requestGpt(prompt);
 		if (jsonResponse == null) {
-			source.sendError(Text.of("Failed to get a response from GPT. Rerun the command to try again..."));
+			source.sendFailure(Component.literal("Failed to parse the response from GPT. Rerun the command to try again..."));
 			return 0;
 		}
 
@@ -122,7 +120,7 @@ public class BuildGPT implements ModInitializer {
 		try {
 			 blocks = parseJson(jsonResponse);
 		} catch (JsonSyntaxException ignored) {
-			source.sendError(Text.of("Failed to parse the response from GPT. Rerun the command to try again..."));
+			source.sendFailure(Component.literal("Failed to parse the response from GPT. Rerun the command to try again..."));
 			return 0;
 		}
 
@@ -132,12 +130,12 @@ public class BuildGPT implements ModInitializer {
 			int z = ((Number) block.get("z")).intValue();
 			String blockType = (String) block.get("block");
 
-			source.getServer().getCommandManager().executeWithPrefix(
+			source.getServer().getCommands().performPrefixedCommand(
 					source, String.format("/setblock %d %d %d %s", x, y, z, blockType)
 			);
 		}
 
-		source.sendMessage(Text.of("Done building!"));
+		source.sendSystemMessage(Component.literal("Done building!"));
 
 		return 1;
 	}
