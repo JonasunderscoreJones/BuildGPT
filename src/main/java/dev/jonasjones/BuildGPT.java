@@ -111,7 +111,7 @@ public class BuildGPT implements ModInitializer {
 		source.sendSystemMessage(Component.literal("Requesting Structure from GPT..."));
 		String jsonResponse = requestGpt(prompt);
 		if (jsonResponse == null) {
-			source.sendFailure(Component.literal("Failed to parse the response from GPT. Rerun the command to try again..."));
+			source.sendFailure(Component.literal("Failed to get a response from GPT. Rerun the command to try again or check the logs..."));
 			return 0;
 		}
 
@@ -167,6 +167,10 @@ public class BuildGPT implements ModInitializer {
 			request.setEntity(new StringEntity(payload.toString()));
 
 			try (CloseableHttpResponse response = httpClient.execute(request)) {
+				if (response.getStatusLine().getStatusCode() == 429) {
+					LOGGER.error("Failed to get a response. You either exceeded Your Rate Limit or have used up all Account Tokens!");
+					return null;
+				}
 				BufferedReader reader = new BufferedReader(
 						new InputStreamReader(response.getEntity().getContent())
 				);
