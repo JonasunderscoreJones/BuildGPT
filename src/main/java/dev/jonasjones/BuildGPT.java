@@ -15,15 +15,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.logging.log4j.core.jmx.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +23,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -141,18 +137,16 @@ public class BuildGPT implements ModInitializer {
 	}
 
 	private static String requestGpt(String prompt) {
-		// HttpClient with 60 second response timeout
-		RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(60 * 1000).build();
-		CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
 		try {
-			HttpPost request = new HttpPost("https://api.openai.com/v1/chat/completions");
-			request.addHeader("Content-Type", "application/json");
 			String apiKey = getApiKey();
 			if (apiKey == null) {
 				LOGGER.error("API key not found. Please provide a valid API key.");
 				return null;
 			}
-			request.addHeader("Authorization", "Bearer " + apiKey);
+
+			HttpClient client = HttpClient .newBuilder()
+					.connectTimeout(Duration.ofSeconds(60))
+					.build();
 
 			JsonObject payload = new JsonObject();
 			payload.addProperty("model", "gpt-4o");
@@ -164,35 +158,43 @@ public class BuildGPT implements ModInitializer {
 			messages.add(userMessage);
 
 			payload.add("messages", messages);
-			request.setEntity(new StringEntity(payload.toString()));
 
-			try (CloseableHttpResponse response = httpClient.execute(request)) {
-				if (response.getStatusLine().getStatusCode() == 429) {
-					LOGGER.error("Failed to get a response. You either exceeded Your Rate Limit or have used up all Account Tokens!");
-					return null;
-				}
-				BufferedReader reader = new BufferedReader(
-						new InputStreamReader(response.getEntity().getContent())
-				);
-				StringBuilder responseContent = new StringBuilder();
-				String line;
-				while ((line = reader.readLine()) != null) {
-					responseContent.append(line);
-				}
+			HttpRequest request = HttpRequest.newBuilder()
+					.uri(URI.create("https://api.openai.com/v1/chat/completions"))
+					.timeout(Duration.ofSeconds(60))
+					.header("Content-Type", "application/json")
+					.header("Authorization", "Bearer " + apiKey)
+					.POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
+					.build();
 
-				JsonObject jsonResponse = JsonParser.parseString(responseContent.toString()).getAsJsonObject();
-				return jsonResponse.get("choices").getAsJsonArray()
-						.get(0).getAsJsonObject()
-						.get("message").getAsJsonObject()
-						.get("content").getAsString();
-			} catch (Exception e) {
-				e.printStackTrace();
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+			if (response.statusCode() == 429) {
+				LOGGER.error("Rate limit exceeded or no tokens left.");
 				return null;
 			}
-		} catch (Exception e) {
+
+			if (response.statusCode() != 200) {
+				LOGGER.error("Unexpected response code: " + response.statusCode());
+				LOGGER.error(response.body());
+				return null;
+			}
+
+			JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+
+			return jsonResponse.get("choices").getAsJsonArray()
+					.get(0).getAsJsonObject()
+					.get("message").getAsJsonObject()
+					.get("content").getAsString();
+
+		} catch (HttpTimeoutException e) {
+			LOGGER.error("Request timed out.");
 			e.printStackTrace();
-			return null;
+		} catch (IOException | InterruptedException e) {
+			e.printStackTrace();
 		}
+
+		return null;
 	}
 
 	private static List<Map<String, Object>> parseJson(String jsonResponse) {
