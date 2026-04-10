@@ -33,6 +33,16 @@ import java.util.concurrent.CompletableFuture;
 public class BuildGPT implements ModInitializer {
 	public static final String MOD_ID = "buildgpt";
 
+	public static final String GPT_PROMPT_BOUND = "Imagine, You're an architect. Design the structure of a minecraft " +
+			"%s within the coordinate range x: %d-%d, y: %d-%d, z: %d-%d in minecraft. Return the blocks in a json " +
+			"list of objects {x:1,y:1,z:1,block:minecraft:block}. Return only the json without any formatting or " +
+			"explanation as plaintext.";
+
+	public static final String GPT_PROMPT_UNBOUND = "Imagine, You're an architect. Design the structure of a %s at " +
+			"the coordinate x: %d, y: %d, z: %d in minecraft. Return the blocks in a json list of objects " +
+			"{x:1,y:1,z:1,block:minecraft:block}. Return only the json without any formatting or explanation as " +
+			"plaintext.";
+
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
 	// That way, it's clear which mod wrote info, warnings, and errors.
@@ -71,11 +81,7 @@ public class BuildGPT implements ModInitializer {
 		int y2 = end_pos.getY();
 		int z2 = end_pos.getZ();
 
-		prompt = String.format(
-				"Imagine, You're an architect. Design the structure of a minecraft %s within the coordinate range x: %d-%d, y: %d-%d, z: %d-%d in minecraft." +
-						"Return the blocks in a json list of objects {x:1,y:1,z:1,block:minecraft:block}. Return only the json without any formatting or explanation as plaintext.",
-				building, x1, x2, y1, y2, z1, z2
-		);
+		prompt = String.format(GPT_PROMPT_BOUND, building, x1, x2, y1, y2, z1, z2);
 
 		return executeBuildGpt(context, prompt);
 	}
@@ -87,11 +93,7 @@ public class BuildGPT implements ModInitializer {
 		int y1 = start_pos.getY();
 		int z1 = start_pos.getZ();
 
-		String prompt = String.format(
-				"Imagine, You're an architect. Design the structure of a %s at the coordinate x: %d, y: %d, z: %d in minecraft." +
-						"Return the blocks in a json list of objects {x:1,y:1,z:1,block:minecraft:block}. Return only the json without any formatting or explanation as plaintext.",
-				building, x1, y1, z1
-		);
+		String prompt = String.format(GPT_PROMPT_UNBOUND, building, x1, y1, z1);
 
 		return executeBuildGpt(context, prompt);
 	}
