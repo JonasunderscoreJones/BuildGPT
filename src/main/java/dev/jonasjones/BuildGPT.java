@@ -28,6 +28,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class BuildGPT implements ModInitializer {
 	public static final String MOD_ID = "buildgpt";
@@ -97,34 +98,41 @@ public class BuildGPT implements ModInitializer {
 
 	private static int executeBuildGpt(CommandContext<CommandSourceStack> context, String prompt) {
 		CommandSourceStack source = context.getSource();
+
 		source.sendSystemMessage(Component.literal("Requesting Structure from GPT..."));
-		String jsonResponse = requestGpt(prompt);
-		if (jsonResponse == null) {
-			source.sendFailure(Component.literal("Failed to get a response from GPT. Rerun the command to try again or check the logs..."));
-			return 0;
-		}
 
-		List<Map<String, Object>> blocks;
+		CompletableFuture
+				.supplyAsync(() -> requestGpt(prompt))
+				.thenApply(json -> {
+					if (json == null) return null;
+					try {
+						return parseJson(json);
+					} catch (JsonSyntaxException e) {
+						return null;
+					}
+				})
+				.thenAccept(blocks -> {
+					source.getServer().execute(() -> {
+						if (blocks == null) {
+							source.sendFailure(Component.literal("Failed to get or parse GPT response."));
+							return;
+						}
 
-		try {
-			 blocks = parseJson(jsonResponse);
-		} catch (JsonSyntaxException ignored) {
-			source.sendFailure(Component.literal("Failed to parse the response from GPT. Rerun the command to try again..."));
-			return 0;
-		}
+						for (Map<String, Object> block : blocks) {
+							int x = ((Number) block.get("x")).intValue();
+							int y = ((Number) block.get("y")).intValue();
+							int z = ((Number) block.get("z")).intValue();
+							String blockType = (String) block.get("block");
 
-		for (Map<String, Object> block : blocks) {
-			int x = ((Number) block.get("x")).intValue();
-			int y = ((Number) block.get("y")).intValue();
-			int z = ((Number) block.get("z")).intValue();
-			String blockType = (String) block.get("block");
+							source.getServer().getCommands().performPrefixedCommand(
+									source,
+									String.format("/setblock %d %d %d %s", x, y, z, blockType)
+							);
+						}
 
-			source.getServer().getCommands().performPrefixedCommand(
-					source, String.format("/setblock %d %d %d %s", x, y, z, blockType)
-			);
-		}
-
-		source.sendSystemMessage(Component.literal("Done building!"));
+						source.sendSystemMessage(Component.literal("Done building!"));
+					});
+				});
 
 		return 1;
 	}
