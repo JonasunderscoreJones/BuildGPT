@@ -14,12 +14,24 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
     implementation project(":common")
+
+    // if minecraft version is 1.21.11 or starts with 26., add the following dependency
+    if (minecraft_version == "1.21.11" || minecraft_version.startsWith("26.")) {
+        implementation fabricApi.module("fabric-resource-loader-v0", fabric_api_version)
+        implementation fabricApi.module("fabric-lifecycle-events-v1", fabric_api_version)
+    }
 }
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "minecraft_version_range", project.minecraft_version_range
+    inputs.property "fabric_api_version", project.fabric_api_version
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand(
+                "version": project.version,
+                "minecraft_version_range": project.minecraft_version_range,
+                "fabric_api_version": project.fabric_api_version
+        )
     }
 }

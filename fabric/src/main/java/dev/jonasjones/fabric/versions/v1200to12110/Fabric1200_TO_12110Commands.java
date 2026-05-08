@@ -1,4 +1,4 @@
-package dev.jonasjones.fabric.versions.v1211;
+package dev.jonasjones.fabric.versions.v1200to12110;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -6,50 +6,41 @@ import dev.jonasjones.common.GPTCommand;
 import dev.jonasjones.common.VersionBridge;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 import static net.minecraft.commands.Commands.literal;
 
-public class VersionBridge1211 implements VersionBridge {
+public class Fabric1200_TO_12110Commands implements VersionBridge {
 
-    @Override
-    public void registerHelloCommand() {
-        System.out.println("[1.21+] Registering hello command");
+    // Static registration method
+    public static void registerCommands() {
+        new Fabric1200_TO_12110Commands().registerBuildGptCommand();
     }
 
-    @Override
     public void registerBuildGptCommand() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("buildgpt")
-                    // Bound version: requires start_pos and end_pos
                     .then(literal("bound")
-                            .then(net.minecraft.commands.Commands.argument("start_pos", BlockPosArgument.blockPos())
-                                    .then(net.minecraft.commands.Commands.argument("end_pos", BlockPosArgument.blockPos())
-                                            .then(net.minecraft.commands.Commands.argument("building", StringArgumentType.greedyString())
-                                                    .executes(VersionBridge1211::executeBoundCommand)
-                                            )
-                                    )
-                            )
-                    )
-                    // Unbound version: requires start_pos only
+                            .then(Commands.argument("start_pos", BlockPosArgument.blockPos())
+                                    .then(Commands.argument("end_pos", BlockPosArgument.blockPos())
+                                            .then(Commands.argument("building", StringArgumentType.greedyString())
+                                                    .executes(this::executeBoundCommand)))))
                     .then(literal("unbound")
-                            .then(net.minecraft.commands.Commands.argument("start_pos", BlockPosArgument.blockPos())
-                                    .then(net.minecraft.commands.Commands.argument("building", StringArgumentType.greedyString())
-                                            .executes(VersionBridge1211::executeUnboundCommand)
-                                    )
-                            )
-                    )
+                            .then(Commands.argument("start_pos", BlockPosArgument.blockPos())
+                                    .then(Commands.argument("building", StringArgumentType.greedyString())
+                                            .executes(this::executeUnboundCommand))))
             );
         });
     }
 
-    private static int executeBoundCommand(CommandContext<CommandSourceStack> context) {
+    private int executeBoundCommand(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        String building = StringArgumentType.getString(context, "building");
         BlockPos startPos = BlockPosArgument.getBlockPos(context, "start_pos");
         BlockPos endPos = BlockPosArgument.getBlockPos(context, "end_pos");
+        String building = StringArgumentType.getString(context, "building");
 
         GPTCommand.executeBuildGptBound(
                 new CommandHandlerImpl(source),
@@ -57,21 +48,19 @@ public class VersionBridge1211 implements VersionBridge {
                 endPos.getX(), endPos.getY(), endPos.getZ(),
                 building
         );
-
         return 1;
     }
 
-    private static int executeUnboundCommand(CommandContext<CommandSourceStack> context) {
+    private int executeUnboundCommand(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        String building = StringArgumentType.getString(context, "building");
         BlockPos startPos = BlockPosArgument.getBlockPos(context, "start_pos");
+        String building = StringArgumentType.getString(context, "building");
 
         GPTCommand.executeBuildGptUnbound(
                 new CommandHandlerImpl(source),
                 startPos.getX(), startPos.getY(), startPos.getZ(),
                 building
         );
-
         return 1;
     }
 

@@ -13,57 +13,59 @@ import net.minecraft.network.chat.Component;
 
 import static net.minecraft.commands.Commands.literal;
 
-public class VersionBridge1201 implements VersionBridge {
+public class Fabric1201Commands implements VersionBridge {
 
-    @Override
-    public void registerHelloCommand() {
-        System.out.println("[1.20.1] Registering hello command");
+    // Static registration method
+    public static void registerCommands() {
+        new Fabric1201Commands().registerBuildGptCommand();
     }
 
-    @Override
+    // Instance method to register commands
     public void registerBuildGptCommand() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("buildgpt")
                     .then(literal("bound")
                             .then(Commands.argument("start_pos", BlockPosArgument.blockPos())
                                     .then(Commands.argument("end_pos", BlockPosArgument.blockPos())
                                             .then(Commands.argument("building", StringArgumentType.greedyString())
-                                                    .executes(VersionBridge1201::executeBoundCommand)))))
+                                                    .executes(this::executeBoundCommand)))))
                     .then(literal("unbound")
                             .then(Commands.argument("start_pos", BlockPosArgument.blockPos())
                                     .then(Commands.argument("building", StringArgumentType.greedyString())
-                                            .executes(VersionBridge1201::executeUnboundCommand)))))
-        );
+                                            .executes(this::executeUnboundCommand))))
+            );
+        });
     }
 
-    private static int executeBoundCommand(CommandContext<CommandSourceStack> context) {
+    private int executeBoundCommand(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        BlockPos startPos = BlockPosArgument.getBlockPos(context, "start_pos");
+        BlockPos endPos = BlockPosArgument.getBlockPos(context, "end_pos");
         String building = StringArgumentType.getString(context, "building");
-        BlockPos start_pos = BlockPosArgument.getBlockPos(context, "start_pos");
-        BlockPos end_pos = BlockPosArgument.getBlockPos(context, "end_pos");
 
         GPTCommand.executeBuildGptBound(
                 new CommandHandlerImpl(source),
-                start_pos.getX(), start_pos.getY(), start_pos.getZ(),
-                end_pos.getX(), end_pos.getY(), end_pos.getZ(),
+                startPos.getX(), startPos.getY(), startPos.getZ(),
+                endPos.getX(), endPos.getY(), endPos.getZ(),
                 building
         );
         return 1;
     }
 
-    private static int executeUnboundCommand(CommandContext<CommandSourceStack> context) {
+    private int executeUnboundCommand(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        BlockPos startPos = BlockPosArgument.getBlockPos(context, "start_pos");
         String building = StringArgumentType.getString(context, "building");
-        BlockPos start_pos = BlockPosArgument.getBlockPos(context, "start_pos");
 
         GPTCommand.executeBuildGptUnbound(
                 new CommandHandlerImpl(source),
-                start_pos.getX(), start_pos.getY(), start_pos.getZ(),
+                startPos.getX(), startPos.getY(), startPos.getZ(),
                 building
         );
         return 1;
     }
 
+    // CommandHandler implementation
     private static class CommandHandlerImpl implements GPTCommand.CommandHandler {
         private final CommandSourceStack source;
 
