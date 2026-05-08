@@ -16,16 +16,13 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"dev.jonasjones.BuildGPT"
-		],
-		"client": [
-			"dev.jonasjones.BuildGPTClient"
+			"dev.jonasjones.fabric.BuildGPT"
 		]
 	},
 	"depends": {
 		"fabricloader": ">=0.16.7",
 		"minecraft": ">=1.21.3",
-		"java": ">=25",
+		"java": ">=21",
 		"fabric-api": "*"
 	}
 }
